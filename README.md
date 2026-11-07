@@ -15,12 +15,10 @@ frontmatter `name` and `description`, then instructions), the layout the
 
 ## Install
 
-Once this repository is published:
-
 ```bash
-npx skills add sendio/skills                      # pick skills and agents interactively
-npx skills add sendio/skills --skill sendio-api   # one skill
-npx skills add sendio/skills --list               # list what is here
+npx skills add send-io/agent-skills                     # pick skills and agents interactively
+npx skills add send-io/agent-skills --skill sendio-api  # one skill
+npx skills add send-io/agent-skills --list              # list what is here
 ```
 
 Locally, copy a folder into your agent's skills directory, for example
