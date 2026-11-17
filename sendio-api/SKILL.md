@@ -33,10 +33,11 @@ curl -X POST https://api.send.io/emails \
   -d '{"from":"Acme <hi@acme.com>","to":["ada@example.com"],"subject":"Welcome","html":"<p>Hi Ada</p>"}'
 ```
 
-Node (`npm install sendio`):
+Node SDK (coming soon: `sendio` is not published on npm yet, so do not
+install a package by that name; use the REST call above until it is):
 
 ```ts
-import { Sendio } from "sendio";
+import { Sendio } from "@sendio/node";
 const sendio = new Sendio(process.env.SENDIO_API_KEY);
 const { data, error } = await sendio.emails.send(
   { from: "Acme <hi@acme.com>", to: ["ada@example.com"], subject: "Welcome", html: "<p>Hi Ada</p>" },
@@ -57,7 +58,7 @@ email = sendio.Emails.send(
 print(email["id"])
 ```
 
-Go (`go get send.io/sendio-go`):
+Go (`go get github.com/send-io/sendio-go`):
 
 ```go
 client := sendio.NewClient(os.Getenv("SENDIO_API_KEY"))
@@ -82,16 +83,46 @@ The response has `data` (ids) and a `batch_id`
 
 ## Templates
 
-1. `POST /templates` with `name`, `html`, `subject`, `from`, optional `alias`,
+1. `POST /templates` with `name`, `html`, optional `alias`, `subject`, `from`,
    `variables` (`[{key, type, fallback_value}]`), `template_engine`
    (`simple`, the default: `{{NAME}}` escaped, `{{{NAME}}}` raw; or `handlebars`:
-   `#if`, `#each`, helpers).
+   `#if`, `#each`, helpers). A template is a design: `from` and `subject` are
+   optional defaults.
 2. `POST /templates/{id or alias}/publish` (sends use the published version).
-3. Send: `POST /emails` with `"template": {"id": "order-receipt", "variables": {"NAME": "Ada"}}`
-   instead of `html`/`text`. A variable with no value and no fallback fails the request.
+   `GET /templates/{id}/publish-impact` first tells what a publish changes
+   (new required variables, removed defaults, transactional emails using it).
+3. Send it through a transactional email (below): `POST /transactional` once,
+   then `POST /emails` with `transactional_id`, `to` and `variables`. A variable
+   with no value and no fallback fails the request. (Sending with
+   `"template": {"id": ...}` is deprecated: still accepted for now.)
 
 Preview without sending: `POST /templates/{id}/render`. Versions:
 `GET /templates/{id}/versions`, `POST .../versions/{version_id}/activate`.
+
+## Transactional emails
+
+For sign-in codes, password resets and receipts, save the envelope once and
+send by id. `POST /transactional` with `name`, `template_id` (a published
+template), `from`, `subject` (may use the template's variables), optional
+`preview_text`, `reply_to`, `track_opens`, `track_clicks` (both off by
+default). It returns `{"id": "tx_...", ...}`. Then send it:
+
+```bash
+curl -X POST https://api.send.io/emails \
+  -H "Authorization: Bearer $SENDIO_API_KEY" \
+  -H "Content-Type: application/json" \
+  -H "X-Sendio-Redact: CODE" \
+  -d '{"transactional_id":"tx_2hX9Yq1bVv0kq3W4m8sZJt1aB7c","to":"ada@example.com","variables":{"CODE":"123456"},"tags":[{"name":"priority","value":"otp"}]}'
+```
+
+- Do not pass `from`, `subject`, `reply_to`, `html`, `text` or `template`
+  with `transactional_id` (422): the transactional email sets them.
+- A republish of the template, or an edit to the transactional email, reaches
+  every send within 10 seconds. Unknown or deleted id: 404; template
+  unpublished or deleted: 422 naming it.
+- A sending-only API key can send it; managing `/transactional` needs a full key.
+- One-time codes: single `POST /emails` (not batch), tracking off,
+  `X-Sendio-Redact: CODE` so the code is not stored.
 
 ## Track and change
 
@@ -104,7 +135,8 @@ Preview without sending: `POST /templates/{id}/render`. Versions:
 Create: `POST /webhooks` with `endpoint` (public HTTPS URL) and `events`
 (e.g. `email.delivered`, `email.bounced`, `email.complained`, `email.opened`,
 `email.clicked`, `email.received`). The response's `signing_secret`
-(`whsec_...`) is shown once. Reply HTTP 200 or the delivery is retried.
+(`whsec_...`) is shown once. Reply with any HTTP 2xx (200 to 299) or the
+delivery is retried.
 
 Each delivery carries `svix-id`, `svix-timestamp` and `svix-signature`
 headers. The signature is `v1,` + base64(HMAC-SHA256(key, "{svix-id}.{svix-timestamp}.{raw body}")),

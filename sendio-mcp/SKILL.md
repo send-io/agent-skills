@@ -1,6 +1,6 @@
 ---
 name: sendio-mcp
-description: Connect an AI client (Claude Code, Claude Desktop, Cursor, Codex, VS Code and others) to send.io's hosted MCP server and use its tools to send email, check delivery, manage domains, templates, contacts, broadcasts, automations, webhooks and agent inboxes. Use when the user wants send.io available as MCP tools, or asks which send.io MCP tool to call.
+description: Connect an AI client (Claude Code, Claude Desktop, Cursor, Codex, VS Code and others) to send.io's hosted MCP server and use its tools to send email, check delivery, manage domains, templates, transactional emails, contacts, broadcasts, automations, webhooks and agent inboxes. Use when the user wants send.io available as MCP tools, or asks which send.io MCP tool to call.
 ---
 
 # send.io MCP server
@@ -62,7 +62,8 @@ kebab-case. Families:
 |---|---|
 | Emails | `send-email`, `send-batch-emails`, `list-emails`, `get-email`, `update-email`, `cancel-email`, `list-email-events`, `list-email-attachments`, `get-email-attachment` |
 | Received emails | `list-received-emails`, `get-received-email`, `list-received-email-attachments`, `get-received-email-attachment` |
-| Templates | `create-template`, `list-templates`, `get-template`, `update-template`, `publish-template`, `duplicate-template`, `remove-template`, `render-template`, `send-test-template`, `list-template-versions`, `get-template-version`, `update-template-version`, `remove-template-version`, `activate-template-version` |
+| Templates | `create-template`, `list-templates`, `get-template`, `update-template`, `publish-template`, `get-template-publish-impact`, `duplicate-template`, `remove-template`, `render-template`, `send-test-template`, `list-template-versions`, `get-template-version`, `update-template-version`, `remove-template-version`, `activate-template-version` |
+| Transactional emails | `create-transactional-email`, `list-transactional-emails`, `get-transactional-email`, `update-transactional-email`, `remove-transactional-email`, `send-test-transactional-email`, `get-transactional-email-stats` |
 | Contacts | `create-contact`, `list-contacts`, `get-contact`, `update-contact`, `remove-contact`, `list-contact-segments`, `add-contact-to-segment`, `remove-contact-from-segment`, `list-contact-topics`, `update-contact-topics` |
 | Contact imports | `create-contact-import`, `list-contact-imports`, `get-contact-import`, `start-contact-import` |
 | Contact properties | `create-contact-property`, `list-contact-properties`, `get-contact-property`, `update-contact-property`, `remove-contact-property` |
@@ -85,6 +86,8 @@ Tool arguments are the API's field names (`from`, `to`, `subject`, `html`,
 ## Working rules
 
 - Check delivery after sending: `get-email` (its `last_event`) or `list-email-events`.
+- Templates are designs: From and subject are optional defaults. Sending a template that has none needs `from` and `subject` on `send-email`. Before publishing a template others rely on, call `get-template-publish-impact` and tell the user what it lists.
+- Transactional emails (sign-in codes, resets, receipts): create one on a published template with `create-transactional-email`, then send it with `send-email` and `transactional_id` plus `to` and `variables` only (it sets the sender, subject and content; passing `from`, `subject`, `html` or `template` with it is refused). Tracking is off unless the user turns it on. For one-time codes keep tracking off and use the tag `priority=otp`.
 - Ask before destructive tools (`remove-*`, `delete-inbox`, `cancel-*`,
   `stop-automation`, `send-broadcast`, `rotate-webhook-signing-secret`).
 - Setting up a ready-made workflow: `list-automation-templates`, then `get-automation-template` to show its emails and the params it needs (url params have no default), then `create-automation-from-template` with an `idempotencyKey`. It is created disabled: enable it with `update-automation` (`status: enabled`) only when the user asks.

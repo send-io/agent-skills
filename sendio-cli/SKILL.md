@@ -1,6 +1,6 @@
 ---
 name: sendio-cli
-description: Send and inspect email with send.io from the terminal using the `sendio` CLI. Use when the user wants to send a (test) email, check whether an email was delivered or bounced, add or verify a sending domain, manage templates, contacts, segments, broadcasts, webhooks, API keys or suppressions, read API request logs, work with agent inboxes, or call any send.io API endpoint.
+description: Send and inspect email with send.io from the terminal using the `sendio` CLI. Use when the user wants to send a (test) email, check whether an email was delivered or bounced, add or verify a sending domain, manage templates, transactional emails, contacts, segments, broadcasts, webhooks, API keys or suppressions, read API request logs, work with agent inboxes, or call any send.io API endpoint.
 ---
 
 # sendio CLI
@@ -49,6 +49,9 @@ Send an email and wait until it is delivered (exit 7 on timeout, 1 on bounce):
 
 - Bodies: `--html @mail.html`, `--text -` (stdin). Attachments: `--attach ./file.pdf`.
 - Templates: `--template welcome --var name=Ada --var count:=3` (`:=` sends JSON-typed values).
+  A template is a design: when it has no default From or subject, pass `--from`/`--subject`.
+- Transactional emails (a saved send of a published template, `tx_…`): `--transactional tx_… --var CODE=123456`.
+  It sets the sender, subject and content, so do not pass `--from`, `--subject`, `--html`, `--text` or `--template`.
 - Later: `--scheduled-at "in 1h"`. Safe retries: `--idempotency-key auto`.
 - Many at once: `sendio emails batch --file emails.ndjson`.
 
@@ -66,6 +69,17 @@ Templates as files (git-friendly):
     sendio templates pull ./emails
     sendio templates push ./emails --dry-run     # diff summary + planned requests
     sendio templates push ./emails --publish
+
+Transactional emails (sign-in codes, password resets, receipts):
+
+    sendio transactional create --name "Sign-in code" --template-id signin-code \
+      --from "Acme <security@acme.dev>" --subject "Your code is {{CODE}}"
+    sendio transactional test <tx_id> --to me@acme.dev --variables CODE=123456
+    sendio transactional stats <tx_id>
+    sendio templates publish-impact <template>   # before a publish: what changes for its sends
+
+Tracking is off by default on a transactional email (`--track-opens`, `--track-clicks`).
+A republish of its template, or an edit, reaches every send within 10 seconds.
 
 Resources (all support `list --limit/--after/--all`, `get`, `create`,
 `update`, `delete` where the API does): `contacts`, `contact-properties`,

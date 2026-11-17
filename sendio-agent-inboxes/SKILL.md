@@ -60,7 +60,7 @@ Webhook for one inbox: `POST /inboxes/{id}/webhooks` with `url` and
 `message.rejected`, `message.opened`, `message.received.spam`). Team-wide:
 `POST /webhooks` with those `message.*` events. Deliveries are signed with
 `svix-id`, `svix-timestamp`, `svix-signature` (verify as in the sendio-api skill);
-answer HTTP 200.
+answer with any HTTP 2xx.
 
 Without a public URL, the CLI streams new messages:
 `sendio inboxes watch <inbox-id-or-address> --exec ./handle.sh` (message JSON on stdin).
@@ -71,8 +71,21 @@ An agent with no account can create one: `POST /v0/agents/sign-up` (no key)
 with optional `username` and `human_email` returns `agent_id`, `inbox_id`
 (`<username>@agents.send.io`) and an `api_key`. The human gets a 6-digit code;
 `POST /v0/agents/{agent_id}/verify` with `{"otp_code": "..."}` and that key
-unlocks it. Until then the agent can only email its human. Limited to 20
-sign-ups per hour per network.
+unlocks it. Until then the agent can use only its own inbox (no `/emails`,
+keys, domains or webhooks), can email only its human, and must be verified
+within a day. `POST /v0/agents/{agent_id}/attach-human` sets the human when
+sign-up had none, or re-sends the code (3 an hour, 5 a day); the human cannot
+be changed afterwards (409): sign up a new agent instead. Limited to 20
+sign-ups per hour per network. Where self sign-up is turned off, it answers
+403 `signup_closed`.
+
+Codes expire after 15 minutes. A code allows 5 checks; each kind of code (the
+agent's own, or a recovery code after a repeat sign-up) allows 10 checks in
+total until one is right, then locks for 24 hours (429 with `Retry-After`).
+Asking for a new code, or signing up again, does not reset that. If the agent
+lost its key, signing up again with the same username and human returns a key
+that only works for verify; the human gets a recovery code, and entering it
+makes that the agent's key and revokes the old one.
 
 ## Other ways in
 
